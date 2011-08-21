@@ -1,0 +1,15 @@
+Description:
+    Generates an ActiveRecord model for Nickname
+
+Example:
+    rails generate nickname
+
+    This will create:
+      generate  model
+        invoke  active_record
+        create    db/migrate/20110821122243_create_nicknames.rb
+        create    app/models/nickname.rb
+        invoke    test_unit
+        create      test/unit/nickname_test.rb
+        create      test/fixtures/nicknames.yml
+

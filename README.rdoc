@@ -1,0 +1,91 @@
+= What is Nickname?
+
+Nickname is a quick way to generate a list of common alternate names for English names. This gem generates a Nickname model, and populates it with data from http://code.google.com/p/nickname-and-diminutive-names-lookup/ via a Rake task
+
+This can be used in congunction with searches to match person records. See the Usage section below for integration tips
+
+= Notes for Installation
+
+  rails generate nickname
+  rake db:migrate
+  rake nicknames:populate
+
+= Usage
+
+Nicknames can be found from a string by calling the Nickname#for method:
+
+  Nickname.for('Bill').map(&:name) # => ["william", "bill", "bud", "will", "willie", "willis", "bill", "willy"]
+
+This can in turn be used to generate a query for all person records matching the original name, or the nickname. This query might look like:
+
+  Person.where(["LOWER(first_name) IN (?)", Nickname.for('bill').map(&:name).push('bill')])
+  Person.where(["LOWER(first_name) IN (?)", Nickname.for('justin').map(&:name).push('justin')]) # Justin has no nicknames
+
+* I am lowercasing the first name field to ensure that there is a case insensitive match
+* I am pushing the actual name on the end of the nickname method, in the event that there are no nicknames, or alternate names for the name specified
+
+While nickname, and alternate name matching are a good start to making your query results linquistically aware, these should be used in conjunction with other database search capabilities. Specifically, fuzzy matching is a powerful compliment to nickname matching. Check out the {pg_search gem}[https://github.com/Casecommons/pg_search] for a quick start to integrating this capability into your Rails application.
+
+To create a powerful search algorithm, apply a search term to multiple algorithms and return a list of the results in a particular ranking. The nicknames table could, and probably should be used in conjunction with other search abilities. PostgreSQL's fuzzy matching is discussed in brief below
+
+= Usage with PostgreSQL Fuzzy Matching
+
+== Installation of Fuzzy Matching on Debian
+
+Debian installations of PostgreSQL can be found at /usr/share/postgres/
+
+Run the fuzzystrmatch.sql against your database by issuing a command similar to:
+
+sudo su postgres -c "psql fs_development -f /usr/share/postgresql/8.4/contrib/fuzzystrmatch.sql"
+
+== Testing Fuzzy Match availability
+
+In a PostgreSQL console, issue the following command:
+
+  \df
+
+This should return a list of functions that are available to your database. These functions should include the following:
+                                        List of functions
+   Schema |      Name      | Result data type |          Argument data types          |  Type  
+  --------+----------------+------------------+---------------------------------------+--------
+   public | difference     | integer          | text, text                            | normal
+   public | dmetaphone     | text             | text                                  | normal
+   public | dmetaphone_alt | text             | text                                  | normal
+   public | levenshtein    | integer          | text, text                            | normal
+   public | levenshtein    | integer          | text, text, integer, integer, integer | normal
+   public | metaphone      | text             | text, integer                         | normal
+   public | soundex        | text             | text                                  | normal
+   public | text_soundex   | text             | text                                  | normal
+
+== Fuzzy Match examples
+
+Search using Levenshtein:
+
+  Person.where("levenshtein(LOWER(first_name), 'wiliam') < 2") # => [#<Person first_name: "William"...]
+
+* The Levenshtein function takes an integer which is the number of changes needed to convert the source word into the target word
+* Note that the Levenshtein algorithm is case sensitive, so I ensure that we are operating on the same case by using LOWER()
+* Levenshtein is particularly good at matching slight spelling variations, or input typos
+
+Search using Difference (Soundex algorithm)
+
+  Person.where("difference(first_name, 'Willem') > 2") # => [#<Person first_name: "William"...]
+
+* The difference function takes a parameter which must be an integer between 0 and 4. This integer is the similarity of the words, 0 being least similar, and 4 being most similar
+* The soundex algorithm has been deprecated in favor of metaphone, and dmetaphone to address limitations with non-English names. Nevertheless it remains synonymous with phonetic searching
+
+Search using Metaphone
+
+  Person.where("metaphone(first_name, 2) = metaphone('Willem', 2)") # => [#<Person first_name: "William"...]
+
+* Metaphone makes improvements on the Soundex algorithm, and takes a parameter which is an integer of the amount of similarity between the two words
+
+Search using DMetaphone (Double Metaphone)
+
+  Person.where("dmetaphone(first_name) = dmetaphone('Willem')") # => [#<Person first_name: "William"...]
+
+While this list is not comprehensive of the text linguistically aware text searching capabilities of a given database, it should help when getting started. Look at the official PostgreSQL documentation below for further information on Fuzzy matching.
+
+== More Information on fuzzy matching in PostgreSQL
+
+{Official PostgreSQL 8.3 Documentation}[http://www.postgresql.org/docs/8.3/static/fuzzystrmatch.html]
