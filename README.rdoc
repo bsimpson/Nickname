@@ -6,9 +6,21 @@ This can be used in congunction with searches to match person records. See the U
 
 = Notes for Installation
 
+In your Gemfile, include the following line:
+
+  gem 'Nickname', :git => 'git://github.com/bsimpson/Nickname.git'
+
+Bundle your gems in your project
+
+  bundle install
+
+And finally, run the tasks associated with the gem
+
   rails generate nickname
   rake db:migrate
   rake nicknames:populate
+
+This will generate the Nickname model and migration, run the migration, and fetch and parse the nicknames data.
 
 = Usage
 
